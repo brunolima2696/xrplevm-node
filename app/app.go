@@ -116,6 +116,8 @@ import (
 	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
 	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	qbft "github.com/xrplevm/node/v10/lightclients/besu-qbft"
+	fabricmsp "github.com/xrplevm/node/v10/lightclients/fabric-msp"
 
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
 	ibcporttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
@@ -622,6 +624,10 @@ func New(
 
 	tmLightClientModule := ibctm.NewLightClientModule(appCodec, storeProvider)
 	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
+	qbftLightClientModule := qbft.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(qbft.ModuleName, &qbftLightClientModule)
+	fabricMSPLightClientModule := fabricmsp.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(fabricmsp.ModuleName, &fabricMSPLightClientModule)
 
 	/**** Module Hooks ****/
 
@@ -661,6 +667,8 @@ func New(
 		ica.NewAppModule(nil, &app.ICAHostKeeper),
 		transferModule,
 		ibctm.NewAppModule(tmLightClientModule),
+		qbft.NewAppModule(),
+		fabricmsp.NewAppModule(),
 		ratelimit.NewAppModule(appCodec, app.RateLimitKeeper),
 
 		// Ethermint app modules

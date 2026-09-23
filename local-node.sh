@@ -1,5 +1,10 @@
-CHAINID="xrplevm_1449999-1"
-MONIKER="localnet"
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CHAINID="${CHAIN_ID:-xrplevm_1449999-1}"
+MONIKER="${MONIKER:-localnet}"
+CHAIN_NAME="${CHAIN_NAME:-$MONIKER}"
 # Remember to change to other types of keyring like 'file' in-case exposing to outside world,
 # otherwise your balance will be wiped quickly
 # The keyring test does not require private key to steal tokens from you
@@ -7,7 +12,7 @@ KEYRING="test"
 KEYALGO="eth_secp256k1"
 LOGLEVEL="info"
 # Set dedicated home directory for the evmosd instance
-HOMEDIR="$PWD/.exrpd"
+HOMEDIR="${HOMEDIR:-$PWD/.exrpd}"
 # to trace evm
 #TRACE="--trace"
 TRACE=""
@@ -22,17 +27,33 @@ GENESIS=$HOMEDIR/config/genesis.json
 TMP_GENESIS=$HOMEDIR/config/tmp_genesis.json
 
 #Account variables
-KEY_NAME="alice"
-MNEMONIC="birth rebuild refuse area aisle language bullet pride place clutch paddle drama"
+KEY_NAME="${KEY_NAME:-alice}"
+MNEMONIC="${MNEMONIC:-birth rebuild refuse area aisle language bullet pride place clutch paddle drama}"
 
-rm -rf $HOMEDIR
+if [[ ! -x bin/exrpd ]]; then
+	make build
+fi
 
-make build
+if [[ -f "$GENESIS" ]]; then
+	STORED_CHAIN_ID=$(jq -r '.chain_id // empty' "$GENESIS")
+	if [[ -z "$STORED_CHAIN_ID" ]]; then
+		echo "Erro: não foi possível identificar o chain-id em $GENESIS." >&2
+		exit 1
+	fi
+	if [[ "$STORED_CHAIN_ID" != "$CHAINID" ]]; then
+		echo "Erro: $CHAIN_NAME já foi inicializada com chain-id $STORED_CHAIN_ID; solicitado: $CHAINID." >&2
+		exit 1
+	fi
+	echo "$CHAIN_NAME já inicializada. Reutilizando estado com chain-id $CHAINID."
+else
+	echo "$CHAIN_NAME ainda não inicializada. Criando genesis com chain-id $CHAINID."
 
 bin/exrpd --home "$HOMEDIR" config set client chain-id "$CHAINID" --chain-id "$CHAINID"
 bin/exrpd --home "$HOMEDIR" config set client keyring-backend "$KEYRING"
 
-echo "$MNEMONIC" | bin/exrpd --home "$HOMEDIR" keys add "$KEY_NAME" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO"
+if ! bin/exrpd --home "$HOMEDIR" keys show "$KEY_NAME" --keyring-backend "$KEYRING" >/dev/null 2>&1; then
+	echo "$MNEMONIC" | bin/exrpd --home "$HOMEDIR" keys add "$KEY_NAME" --recover --keyring-backend "$KEYRING" --algo "$KEYALGO"
+fi
 
 bin/exrpd --home "$HOMEDIR" init "$MONIKER" -o --chain-id "$CHAINID"
 
@@ -44,7 +65,7 @@ jq '.app_state["gov"]["params"]["min_deposit"][0]["amount"]="1"' "$GENESIS" >"$T
 jq '.app_state["gov"]["params"]["voting_period"]="10s"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["gov"]["params"]["expedited_voting_period"]="5s"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["staking"]["params"]["bond_denom"]="apoa"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-jq '.app_state["staking"]["params"]["unbonding_time"]="60s"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
+jq '.app_state["staking"]["params"]["unbonding_time"]="86400s"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["feemarket"]["params"]["base_fee"]="'${BASEFEE}'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 jq '.app_state["feemarket"]["params"]["no_base_fee"]=true' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -68,8 +89,9 @@ bin/exrpd --home "$HOMEDIR" genesis gentx alice 1000000apoa --gas-prices ${BASEF
 bin/exrpd --home "$HOMEDIR" genesis collect-gentxs
 
 bin/exrpd --home "$HOMEDIR" genesis validate
+fi
 
-if [[ $1 == "pending" ]]; then
+if [[ "${1:-}" == "pending" ]]; then
 		if [[ "$OSTYPE" == "darwin"* ]]; then
 			sed -i '' 's/timeout_propose = "3s"/timeout_propose = "30s"/g' "$CONFIG"
 			sed -i '' 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "5s"/g' "$CONFIG"
@@ -108,7 +130,13 @@ if [[ $1 == "pending" ]]; then
 		grep -q -F '[memiavl]' "$APP_TOML" && sed -i '/\[memiavl\]/,/^\[/ s/enable = true/enable = false/' "$APP_TOML"
 	fi
 
-bin/exrpd start \
+sed -i 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#g' "$CONFIG"
+sed -i 's#address = "127.0.0.1:8545"#address = "0.0.0.0:8545"#g' "$APP_TOML"
+sed -i 's#ws-address = "127.0.0.1:8546"#ws-address = "0.0.0.0:8546"#g' "$APP_TOML"
+sed -i 's#address = "tcp://localhost:1317"#address = "tcp://0.0.0.0:1317"#g' "$APP_TOML"
+sed -i 's#address = "localhost:9090"#address = "0.0.0.0:9090"#g' "$APP_TOML"
+
+exec bin/exrpd start \
 	--metrics "$TRACE" \
 	--log_level $LOGLEVEL \
 	--json-rpc.api eth,txpool,personal,net,debug,web3 \

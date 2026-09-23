@@ -1,0 +1,120 @@
+syntax = "proto3";
+package ibc.lightclients.fabricmsp.v1;
+
+option go_package = "github.com/xrplevm/node/v10/lightclients/fabric-msp";
+
+import "gogoproto/gogo.proto";
+option (gogoproto.goproto_getters_all) = false;
+
+// Sequence é o contador monotônico do commitment log do chaincode Fabric
+// que ancora o estado IBC (T30/T31) — faz o papel de "altura" pro client
+// fabric-msp, já que Fabric não tem block height diretamente comparável.
+message Sequence {
+  uint64 value = 1;
+  int64 timestamp = 2;
+}
+
+// ChaincodeID identifica um chaincode instalado (path/name/version), no
+// mesmo formato do peer.ChaincodeID nativo do Fabric.
+message ChaincodeID {
+  string path = 1;
+  string name = 2;
+  string version = 3;
+}
+
+// CommitmentProof é a prova de uma entrada endossada do read-write set de
+// um ProposalResponsePayload (T29 verifica de verdade; aqui só a forma).
+message CommitmentProof {
+  bytes proposal = 1;
+  uint32 ns_index = 2;
+  uint32 write_set_index = 3;
+  repeated bytes identities = 4;
+  repeated bytes signatures = 5;
+}
+
+// MessageProof é uma lista de (identity, signature) sobre uma mensagem
+// arbitrária (usado para autenticar ChaincodeInfo/MSPHeader).
+message MessageProof {
+  repeated bytes identities = 1;
+  repeated bytes signatures = 2;
+}
+
+// ChaincodeHeader avança a sequência do commitment log, com uma prova
+// endossada de que esse avanço é legítimo (T28 verifica de verdade).
+message ChaincodeHeader {
+  Sequence sequence = 1 [(gogoproto.nullable) = false];
+  CommitmentProof proof = 2 [(gogoproto.nullable) = false];
+}
+
+// ChaincodeInfo é a política vigente do chaincode que ancora o IBC: canal,
+// ID do chaincode, política de endosso (Fabric nativa) e política de quem
+// pode submeter headers IBC (ibc_policy).
+message ChaincodeInfo {
+  string channel_id = 1;
+  ChaincodeID chaincode_id = 2 [(gogoproto.nullable) = false];
+  bytes endorsement_policy = 3;
+  bytes ibc_policy = 4;
+  MessageProof proof = 5;
+}
+
+enum MSPHeaderType {
+  MSP_HEADER_TYPE_UNSPECIFIED = 0;
+  MSP_HEADER_TYPE_CREATE = 1;
+  MSP_HEADER_TYPE_UPDATE_POLICY = 2;
+  MSP_HEADER_TYPE_UPDATE_CONFIG = 3;
+  MSP_HEADER_TYPE_FREEZE = 4;
+}
+
+// MSPHeader cria/atualiza/congela a MSPInfo de uma organização — é assim
+// que uma nova org entra (ou uma existente muda de política) na raiz de
+// confiança do client, em vez de uma mudança de validator set.
+message MSPHeader {
+  MSPHeaderType type = 1;
+  string msp_id = 2;
+  bytes config = 3;
+  bytes policy = 4;
+  MessageProof proof = 5;
+}
+
+message MSPHeaders {
+  repeated MSPHeader headers = 1 [(gogoproto.nullable) = false];
+}
+
+// MSPInfo é a raiz de confiança de uma organização: seu MSPConfig (bytes,
+// certificados raiz) e a política de assinatura vigente.
+message MSPInfo {
+  string msp_id = 1;
+  bytes config = 2;
+  bytes policy = 3;
+  bool freezed = 4;
+}
+
+message MSPInfos {
+  repeated MSPInfo infos = 1 [(gogoproto.nullable) = false];
+}
+
+// Header é um pacote de atualização do client fabric-msp: pode trazer
+// avanço de sequência, mudança de política do chaincode e/ou mudanças de
+// MSP, em qualquer combinação (ValidateBasic exige pelo menos um).
+message Header {
+  ChaincodeHeader chaincode_header = 1;
+  ChaincodeInfo chaincode_info = 2;
+  MSPHeaders msp_headers = 3;
+}
+
+// ClientState do client fabric-msp: a raiz de confiança são as MSPInfos
+// (certificados das organizações) mais a política de endosso vigente do
+// chaincode, não um validator set.
+message ClientState {
+  string id = 1;
+  ChaincodeHeader last_chaincode_header = 2 [(gogoproto.nullable) = false];
+  ChaincodeInfo last_chaincode_info = 3 [(gogoproto.nullable) = false];
+  MSPInfos last_msp_infos = 4 [(gogoproto.nullable) = false];
+}
+
+// ConsensusState só guarda o timestamp — não existe um "Root" genérico
+// aqui: cada valor é verificado por uma prova de endosso ad-hoc (T29),
+// não por uma prova Merkle contra uma raiz única.
+message ConsensusState {
+  int64 timestamp = 1;
+}

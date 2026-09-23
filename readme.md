@@ -1,70 +1,23 @@
-<!--
-parent:
-  order: false
--->
+# XRPL EVM Sidechain Node — Fork
 
-<div align="center">
-  <h1> XRPL EVM Sidechain node </h1>
-</div>
+Este repositório é um fork do [`xrplevm/node`](https://github.com/xrplevm/node), adaptado para os testes de interoperabilidade do projeto.
 
-<div align="center">
-  <a href="https://github.com/xrplevm/node/releases/latest">
-    <img alt="Version" src="https://img.shields.io/github/tag/xrplevm/node.svg" />
-  </a>
-  <a href="https://github.com/xrplevm/node/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/xrplevm/node.svg" />
-  </a>
-  <a href="https://pkg.go.dev/github.com/xrplevm/node">
-    <img alt="GoDoc" src="https://godoc.org/github.com/xrplevm/node?status.svg" />
-  </a>
-  <a href="https://goreportcard.com/report/github.com/xrplevm/node">
-    <img alt="Go report card" src="https://goreportcard.com/badge/github.com/xrplevm/node"/>
-  </a>
-</div>
-<div align="center">
-  <a href="https://discord.gg/xrplevm">
-    <img alt="Discord" src="https://img.shields.io/discord/809048090249134080.svg" />
-  </a>
-  <a href="https://codecov.io/gh/xrplevm/node">
-    <img alt="Code Coverage" src="https://codecov.io/gh/xrplevm/node/branch/main/graph/badge.svg" />
-  </a>
-  <a href="https://twitter.com/Peersyst">
-    <img alt="Twitter Follow Peersyst" src="https://img.shields.io/twitter/follow/Peersyst"/>
-  </a>
-</div>
+## Light client Besu/QBFT
 
-## About
+O fork incorpora um light client IBC para redes Besu com consenso QBFT, compatível com IBC-Go v10. A implementação permite que a XRPL EVM Sidechain:
 
-The XRP Ledger Ethereum Virtual Machine (EVM) sidechain is a fast and secure blockchain that brings web3 applications to the XRP Ledger community.
+- registre o cliente `hb-qbft`;
+- valide cabeçalhos e assinaturas do conjunto de validadores QBFT;
+- mantenha os estados de cliente e consenso necessários pelo IBC.
 
-## Quick Start
+O código está em [`lightclients/besu-qbft`](lightclients/besu-qbft).
 
-To learn how the XRPL EVM Sidechain works from a high-level perspective,
-go to the [Protocol Overview](https://docs.xrplevm.org/introduction) section of the documentation.
+## Light client Fabric/MSP
 
-## Documentation
+O fork também incorpora um light client IBC para redes Hyperledger Fabric. A implementação permite que a XRPL EVM Sidechain:
 
-Find all the documentation at [docs.xrplevm.org](https://docs.xrplevm.org).
-Head over there and check it out.
+- registre o cliente `fabric-msp`;
+- valide identidades, certificados e políticas de endosso MSP;
+- verifique compromissos IBC presentes nos read-write sets endossados pelo chaincode.
 
-## Installation
-
-For prerequisites and detailed build instructions
-please read the [Join the EVM Sidechain](https://docs.xrplevm.org/pages/operators/getting-started/join-the-xrplevm) instructions.
-
-Or check out the latest [release](https://github.com/xrplevm/node/releases).
-
-## Community
-
-The following chat channels and forums are great spots to ask questions about the XRPL EVM Sidechain:
-
-- [Peersyst Twitter](https://twitter.com/Peersyst)
-- [XRPL EVM Sidechian Discord](https://discord.gg/xrplevm)
-
-## Contributing
-
-Looking for a good place to start contributing?
-Check out some
-[`good first issues`](https://github.com/xrplevm/node/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
-
-For additional instructions, standards and style guides, please refer to the [Contributing](./CONTRIBUTING.md) document.
+O código está em [`lightclients/fabric-msp`](lightclients/fabric-msp).
