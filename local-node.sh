@@ -139,6 +139,6 @@ sed -i 's#address = "localhost:9090"#address = "0.0.0.0:9090"#g' "$APP_TOML"
 exec bin/exrpd start \
 	--metrics "$TRACE" \
 	--log_level $LOGLEVEL \
-	--json-rpc.api eth,txpool,personal,net,debug,web3 \
+	--json-rpc.api eth,txpool,personal,net,debug,web3,fabric \
 	--home "$HOMEDIR" \
 	--chain-id "$CHAINID"

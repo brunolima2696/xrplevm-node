@@ -36,11 +36,13 @@ func InitAppConfig(denom string, evmChainID uint64) (string, interface{}) {
 
 	evmCfg := cosmosevmserverconfig.DefaultEVMConfig()
 	evmCfg.EVMChainID = evmChainID
+	jsonRPC := cosmosevmserverconfig.DefaultJSONRPCConfig()
+	jsonRPC.API = append(jsonRPC.API, "fabric")
 
 	customAppConfig := CustomAppConfig{
 		Config:  *srvCfg,
 		EVM:     *evmCfg,
-		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
+		JSONRPC: *jsonRPC,
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
 

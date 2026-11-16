@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"slices"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -44,10 +45,16 @@ func NewDefaultGenesisState(app *App) GenesisState {
 func NewEVMGenesisState() *evmtypes.GenesisState {
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.EvmDenom = BaseDenom
-	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.ActiveStaticPrecompiles = activeStaticPrecompiles()
 	evmGenState.Preinstalls = evmtypes.DefaultPreinstalls
 
 	return evmGenState
+}
+
+func activeStaticPrecompiles() []string {
+	addresses := append([]string{}, evmtypes.AvailableStaticPrecompiles...)
+	slices.Sort(addresses)
+	return slices.Compact(addresses)
 }
 
 // NewErc20GenesisState returns the default genesis state for the ERC20 module.

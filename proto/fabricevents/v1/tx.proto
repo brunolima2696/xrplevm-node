@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package fabricevents.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/xrplevm/node/v10/x/fabricevents";
+
+// Msg provides governance-authorized configuration updates.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+  rpc UpdateConfig(MsgUpdateConfig) returns (MsgUpdateConfigResponse);
+}
+
+// MsgUpdateConfig replaces the authorized clients and execution gas configuration.
+message MsgUpdateConfig {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // Retired field, ignored; retained to decode historical governance proposals.
+  string contract_address = 2;
+  repeated string allowed_client_ids = 3;
+  uint64 gas_limit = 4;
+}
+
+message MsgUpdateConfigResponse {}

@@ -52,6 +52,7 @@ import (
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 	vmmod "github.com/cosmos/evm/x/vm"
+	"github.com/xrplevm/node/v10/x/fabricevents"
 	"github.com/xrplevm/node/v10/x/poa"
 
 	"cosmossdk.io/log"
@@ -170,6 +171,7 @@ var (
 		ratelimittypes.ModuleName:      nil,
 		feemarkettypes.ModuleName:      nil,
 		poatypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
+		fabricevents.ModuleName:        nil,
 	}
 )
 
@@ -295,6 +297,7 @@ func New(
 		paramstypes.StoreKey, ibcexported.StoreKey, upgradetypes.StoreKey, feegrant.StoreKey, evidencetypes.StoreKey,
 		ibctransfertypes.StoreKey, crisistypes.StoreKey, consensusparamtypes.StoreKey,
 		icahosttypes.StoreKey, ratelimittypes.StoreKey,
+		fabricevents.ModuleName,
 		// Ethermint
 		evmtypes.StoreKey, feemarkettypes.StoreKey,
 		erc20types.StoreKey,
@@ -614,9 +617,17 @@ func New(
 
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := ibcporttypes.NewRouter()
+	fabricEventsKeeper := fabricevents.NewKeeper(keys[fabricevents.ModuleName], app.IBCKeeper)
+	signedProcessor, err := fabricevents.NewSignedTransactionProcessor(app.EvmKeeper, app.AccountKeeper, app.FeeMarketKeeper,
+		fabricevents.SignedTransactionOptions{Enabled: true, MaxGas: 3000000, MaxBytes: 4096})
+	if err != nil {
+		panic(err)
+	}
+	fabricEventsKeeper = fabricEventsKeeper.WithSignedTransactionProcessor(signedProcessor)
 	ibcRouter.
 		AddRoute(icahosttypes.SubModuleName, icaHostIBCModule).
-		AddRoute(ibctransfertypes.ModuleName, transferStack)
+		AddRoute(ibctransfertypes.ModuleName, transferStack).
+		AddRoute(fabricevents.RouteKey, fabricevents.IBCModule{Keeper: fabricEventsKeeper})
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	clientKeeper := app.IBCKeeper.ClientKeeper
@@ -669,6 +680,7 @@ func New(
 		ibctm.NewAppModule(tmLightClientModule),
 		qbft.NewAppModule(),
 		fabricmsp.NewAppModule(),
+		fabricevents.NewAppModule(fabricEventsKeeper, app.AccountKeeper),
 		ratelimit.NewAppModule(appCodec, app.RateLimitKeeper),
 
 		// Ethermint app modules
@@ -755,6 +767,7 @@ func New(
 		genutiltypes.ModuleName,
 		evidencetypes.ModuleName,
 		ibctransfertypes.ModuleName,
+		fabricevents.ModuleName,
 		icatypes.ModuleName,
 		authz.ModuleName,
 		feegrant.ModuleName,
@@ -932,7 +945,7 @@ func (app *App) BlockedModuleAccountAddrs() map[string]bool {
 		blockedAddrs[authtypes.NewModuleAddress(acc).String()] = true
 	}
 
-	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
+	blockedPrecompilesHex := activeStaticPrecompiles()
 	for _, addr := range vm.PrecompiledAddressesPrague {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
@@ -965,7 +978,7 @@ func (app *App) DefaultGenesis() map[string]json.RawMessage {
 	genesis := app.BasicModuleManager.DefaultGenesis(app.appCodec)
 
 	evmGenState := evmtypes.DefaultGenesisState()
-	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.ActiveStaticPrecompiles = activeStaticPrecompiles()
 	genesis[evmtypes.ModuleName] = app.AppCodec().MustMarshalJSON(evmGenState)
 
 	erc20GenState := erc20types.DefaultGenesisState()
